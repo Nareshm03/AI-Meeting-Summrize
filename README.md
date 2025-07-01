@@ -128,8 +128,13 @@ The application will be available at `http://localhost:5000`
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Acknowledgments
+## About
 
-- Built with modern web technologies for optimal performance
-- Designed with user experience and accessibility in mind
-- Implements industry best practices for security and scalability
+This project was developed to solve the common problem of extracting actionable insights from lengthy meeting transcripts. The application combines modern web technologies with advanced text processing to deliver a comprehensive meeting analysis solution.
+
+## Features Highlights
+
+- **Smart Text Processing**: Advanced algorithms for extracting meaningful insights
+- **Real-time Analysis**: Fast processing with immediate results
+- **User-Friendly Interface**: Clean, intuitive design for seamless user experience
+- **Secure & Scalable**: Built with security and performance in mind
