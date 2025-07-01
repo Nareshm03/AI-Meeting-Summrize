@@ -24,8 +24,9 @@ The Intelligent Meeting Summarizer is an AI-powered web application that process
 - **ORM**: Drizzle ORM configured for PostgreSQL
 - **Database**: PostgreSQL (using @neondatabase/serverless for cloud deployment)
 - **Migrations**: Drizzle Kit for schema management
-- **Development Storage**: In-memory storage implementation for rapid development
+- **Production Storage**: DatabaseStorage implementation using PostgreSQL
 - **Session Management**: Connect-pg-simple for PostgreSQL session store
+- **Connection**: Server-side connection pooling via Neon serverless driver
 
 ## Key Components
 
@@ -90,6 +91,7 @@ The Intelligent Meeting Summarizer is an AI-powered web application that process
 
 Changelog:
 - July 01, 2025. Initial setup
+- July 01, 2025. Added PostgreSQL database integration with Drizzle ORM
 
 ## User Preferences
 
