@@ -70,7 +70,12 @@ SESSION_SECRET=your_session_secret
 
 4. Set up the database:
 ```bash
+# Generate and run database migrations
+npm run db:generate
 npm run db:push
+
+# Or for production deployment
+npm run db:migrate
 ```
 
 5. Start the development server:
@@ -86,7 +91,10 @@ The application will be available at `http://localhost:5000`
 - `npm run build` - Build for production
 - `npm run start` - Start production server
 - `npm run check` - Type checking
-- `npm run db:push` - Push database schema
+- `npm run db:generate` - Generate database migrations
+- `npm run db:push` - Push database schema changes
+- `npm run db:migrate` - Run database migrations
+- `npm run db:studio` - Open Drizzle Studio (database GUI)
 
 ## Project Structure
 
