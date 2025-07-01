@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Brain, Plus, User, Search, BarChart3, TrendingUp, Clock, Users, FileText, Activity, PieChart } from "lucide-react";
+import { Brain, Plus, User, Search, BarChart3, TrendingUp, Clock, Users, FileText, Activity, PieChart, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useAuth } from "@/hooks/useAuth";
 import FileUpload from "@/components/file-upload";
 import MeetingAnalysis from "@/components/meeting-analysis";
 import MeetingInsights from "@/components/meeting-insights";
@@ -16,10 +19,18 @@ export default function Home() {
   const [selectedMeetingId, setSelectedMeetingId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("analysis");
+  const { user, logout } = useAuth();
 
   const { data: meetings = [], isLoading } = useQuery<Meeting[]>({
     queryKey: ["/api/meetings"],
   });
+
+  const getUserInitials = () => {
+    if (user?.firstName && user?.lastName) {
+      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+    }
+    return user?.username?.[0]?.toUpperCase() || "U";
+  };
 
   const selectedMeeting = meetings.find(m => m.id === selectedMeetingId);
 

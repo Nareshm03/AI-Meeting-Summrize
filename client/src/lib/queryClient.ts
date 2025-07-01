@@ -11,11 +11,29 @@ export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
+  options?: { headers?: Record<string, string> }
 ): Promise<Response> {
+  // Get token from localStorage for authorization
+  const token = localStorage.getItem("auth_token");
+  
+  const headers: Record<string, string> = {
+    ...options?.headers,
+  };
+
+  // Add auth header if token exists
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  // Only add Content-Type for non-FormData requests
+  if (data && !(data instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
+
   const res = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
+    headers,
+    body: data instanceof FormData ? data : data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
 
@@ -29,7 +47,16 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
+    // Get token from localStorage for authorization
+    const token = localStorage.getItem("auth_token");
+    
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
     const res = await fetch(queryKey[0] as string, {
+      headers,
       credentials: "include",
     });
 

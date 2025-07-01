@@ -1,16 +1,18 @@
 import { users, meetings, type User, type InsertUser, type Meeting, type InsertMeeting } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, updates: Partial<User>): Promise<User | undefined>;
   
   createMeeting(meeting: InsertMeeting): Promise<Meeting>;
-  getMeeting(id: number): Promise<Meeting | undefined>;
+  getMeeting(id: number, userId: number): Promise<Meeting | undefined>;
   updateMeeting(id: number, updates: Partial<Meeting>): Promise<Meeting | undefined>;
-  getAllMeetings(): Promise<Meeting[]>;
+  getAllMeetings(userId: number): Promise<Meeting[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -24,12 +26,26 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
+  }
+
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db
       .insert(users)
       .values(insertUser)
       .returning();
     return user;
+  }
+
+  async updateUser(id: number, updates: Partial<User>): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return user || undefined;
   }
 
   async createMeeting(insertMeeting: InsertMeeting): Promise<Meeting> {
@@ -40,8 +56,11 @@ export class DatabaseStorage implements IStorage {
     return meeting;
   }
 
-  async getMeeting(id: number): Promise<Meeting | undefined> {
-    const [meeting] = await db.select().from(meetings).where(eq(meetings.id, id));
+  async getMeeting(id: number, userId: number): Promise<Meeting | undefined> {
+    const [meeting] = await db
+      .select()
+      .from(meetings)
+      .where(and(eq(meetings.id, id), eq(meetings.userId, userId)));
     return meeting || undefined;
   }
 
@@ -54,10 +73,11 @@ export class DatabaseStorage implements IStorage {
     return meeting || undefined;
   }
 
-  async getAllMeetings(): Promise<Meeting[]> {
+  async getAllMeetings(userId: number): Promise<Meeting[]> {
     return await db
       .select()
       .from(meetings)
+      .where(eq(meetings.userId, userId))
       .orderBy(desc(meetings.createdAt));
   }
 }
