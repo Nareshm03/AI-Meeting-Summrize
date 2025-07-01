@@ -9,13 +9,19 @@ import {
   Clock,
   User,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  FileJson,
+  FileSpreadsheet,
+  Printer
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useToast } from "@/hooks/use-toast";
 import SentimentChart from "./sentiment-chart";
+import { exportToJSON, exportToCSV, exportToPDF } from "@/lib/export";
 import type { Meeting } from "@shared/schema";
 
 interface MeetingAnalysisProps {
@@ -24,6 +30,7 @@ interface MeetingAnalysisProps {
 
 export default function MeetingAnalysis({ meeting }: MeetingAnalysisProps) {
   const [activeTab, setActiveTab] = useState("summary");
+  const { toast } = useToast();
 
   // Poll for updates if still processing
   const { data: updatedMeeting } = useQuery<Meeting>({
@@ -33,9 +40,33 @@ export default function MeetingAnalysis({ meeting }: MeetingAnalysisProps) {
 
   const currentMeeting = updatedMeeting || meeting;
 
-  const handleExport = (type: string) => {
-    // TODO: Implement export functionality
-    console.log(`Export ${type} for meeting ${currentMeeting.id}`);
+  const handleExport = (type: string, format: string) => {
+    try {
+      switch (format) {
+        case 'json':
+          exportToJSON(currentMeeting);
+          break;
+        case 'csv-actions':
+          exportToCSV(currentMeeting, 'actions');
+          break;
+        case 'csv-speakers':
+          exportToCSV(currentMeeting, 'speakers');
+          break;
+        case 'pdf':
+          exportToPDF(currentMeeting);
+          break;
+      }
+      toast({
+        title: "Export successful",
+        description: `${type} exported successfully`,
+      });
+    } catch (error) {
+      toast({
+        title: "Export failed",
+        description: "Failed to export data",
+        variant: "destructive",
+      });
+    }
   };
 
   if (currentMeeting.processingStatus === "processing") {
@@ -155,15 +186,25 @@ export default function MeetingAnalysis({ meeting }: MeetingAnalysisProps) {
           <div className="p-6">
             <TabsContent value="summary" className="mt-0">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900">Meeting Summary</h3>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => handleExport('summary')}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
+                <h3 className="text-lg font-semibold text-foreground">Meeting Summary</h3>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="hover:scale-105 transition-transform">
+                      <Download className="w-4 h-4 mr-2" />
+                      Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleExport('Summary', 'pdf')}>
+                      <Printer className="w-4 h-4 mr-2" />
+                      Export PDF
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleExport('Summary', 'json')}>
+                      <FileJson className="w-4 h-4 mr-2" />
+                      Export JSON
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
               
               <div className="space-y-6">
@@ -220,15 +261,25 @@ export default function MeetingAnalysis({ meeting }: MeetingAnalysisProps) {
 
             <TabsContent value="actions" className="mt-0">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900">Action Items</h3>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => handleExport('actions')}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
+                <h3 className="text-lg font-semibold text-foreground">Action Items</h3>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="hover:scale-105 transition-transform">
+                      <Download className="w-4 h-4 mr-2" />
+                      Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleExport('Action Items', 'csv-actions')}>
+                      <FileSpreadsheet className="w-4 h-4 mr-2" />
+                      Export CSV
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleExport('Action Items', 'json')}>
+                      <FileJson className="w-4 h-4 mr-2" />
+                      Export JSON
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
               <div className="space-y-4">
@@ -286,15 +337,25 @@ export default function MeetingAnalysis({ meeting }: MeetingAnalysisProps) {
 
             <TabsContent value="sentiment" className="mt-0">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900">Sentiment Analysis</h3>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => handleExport('sentiment')}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
+                <h3 className="text-lg font-semibold text-foreground">Sentiment Analysis</h3>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="hover:scale-105 transition-transform">
+                      <Download className="w-4 h-4 mr-2" />
+                      Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleExport('Sentiment Analysis', 'json')}>
+                      <FileJson className="w-4 h-4 mr-2" />
+                      Export JSON
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleExport('Sentiment Analysis', 'pdf')}>
+                      <Printer className="w-4 h-4 mr-2" />
+                      Export PDF
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
               {currentMeeting.sentimentAnalysis ? (
@@ -379,15 +440,25 @@ export default function MeetingAnalysis({ meeting }: MeetingAnalysisProps) {
 
             <TabsContent value="speakers" className="mt-0">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900">Speaker Analysis</h3>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => handleExport('speakers')}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
+                <h3 className="text-lg font-semibold text-foreground">Speaker Analysis</h3>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="hover:scale-105 transition-transform">
+                      <Download className="w-4 h-4 mr-2" />
+                      Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleExport('Speaker Analysis', 'csv-speakers')}>
+                      <FileSpreadsheet className="w-4 h-4 mr-2" />
+                      Export CSV
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleExport('Speaker Analysis', 'json')}>
+                      <FileJson className="w-4 h-4 mr-2" />
+                      Export JSON
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
               {currentMeeting.speakerAnalysis && currentMeeting.speakerAnalysis.speakers.length > 0 ? (

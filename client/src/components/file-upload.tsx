@@ -103,15 +103,18 @@ export default function FileUpload({ onMeetingCreated }: FileUploadProps) {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">Upload Meeting Transcript</h2>
+    <div className="bg-card rounded-xl shadow-lg border border-border p-6 transition-all duration-300 hover:shadow-xl group">
+      <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center">
+        <CloudUpload className="w-5 h-5 mr-2 text-primary" />
+        Upload Meeting Transcript
+      </h2>
       
       {/* Upload Area */}
       <div
-        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
+        className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-300 cursor-pointer relative overflow-hidden ${
           dragActive 
-            ? 'border-primary bg-blue-50' 
-            : 'border-gray-300 hover:border-primary hover:bg-blue-50'
+            ? 'border-primary bg-primary/10 scale-105 shadow-lg' 
+            : 'border-border hover:border-primary hover:bg-primary/5 hover:shadow-md'
         }`}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
@@ -119,10 +122,24 @@ export default function FileUpload({ onMeetingCreated }: FileUploadProps) {
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
       >
-        <CloudUpload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-        <p className="text-lg font-medium text-gray-900 mb-2">Drop your transcript here</p>
-        <p className="text-sm text-gray-500 mb-4">or click to browse files</p>
-        <p className="text-xs text-gray-400">Supports .txt, .docx, .pdf files up to 10MB</p>
+        {/* Background animation */}
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        
+        <div className={`relative z-10 transition-transform duration-300 ${dragActive ? 'scale-110' : 'group-hover:scale-105'}`}>
+          <CloudUpload className={`w-12 h-12 mx-auto mb-4 transition-all duration-300 ${
+            dragActive ? 'text-primary animate-bounce' : 'text-muted-foreground group-hover:text-primary'
+          }`} />
+          <p className="text-lg font-medium text-foreground mb-2 transition-colors">
+            {dragActive ? 'Release to upload' : 'Drop your transcript here'}
+          </p>
+          <p className="text-sm text-muted-foreground mb-4">or click to browse files</p>
+          <div className="flex justify-center space-x-2 text-xs text-muted-foreground">
+            <span className="px-2 py-1 bg-primary/10 text-primary rounded-full">.txt</span>
+            <span className="px-2 py-1 bg-primary/10 text-primary rounded-full">.docx</span>
+            <span className="px-2 py-1 bg-primary/10 text-primary rounded-full">.pdf</span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">Maximum file size: 10MB</p>
+        </div>
         
         <input
           ref={fileInputRef}
@@ -135,15 +152,29 @@ export default function FileUpload({ onMeetingCreated }: FileUploadProps) {
 
       {/* Processing Status */}
       {uploadMutation.isPending && (
-        <div className="mt-4">
-          <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+        <div className="mt-4 animate-in slide-in-from-bottom duration-300">
+          <div className="flex items-center justify-between p-4 bg-primary/10 rounded-lg border border-primary/20">
             <div className="flex items-center">
-              <Loader2 className="w-4 h-4 animate-spin text-primary mr-3" />
-              <span className="text-sm font-medium text-primary">Processing transcript...</span>
+              <div className="relative">
+                <Loader2 className="w-5 h-5 animate-spin text-primary mr-3" />
+                <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-pulse" />
+              </div>
+              <div>
+                <span className="text-sm font-medium text-primary">Processing transcript...</span>
+                <p className="text-xs text-muted-foreground">AI is analyzing your meeting</p>
+              </div>
             </div>
-            <span className="text-sm text-gray-500">{uploadProgress}%</span>
+            <div className="text-right">
+              <span className="text-lg font-bold text-primary">{uploadProgress}%</span>
+            </div>
           </div>
-          <Progress value={uploadProgress} className="mt-2" />
+          <div className="mt-3">
+            <Progress value={uploadProgress} className="h-2 transition-all duration-300" />
+            <div className="flex justify-between text-xs text-muted-foreground mt-1">
+              <span>Uploading...</span>
+              <span>Analyzing content...</span>
+            </div>
+          </div>
         </div>
       )}
     </div>
