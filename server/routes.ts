@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertMeetingSchema, insertUserSchema, loginSchema, linkProcessSchema } from "@shared/schema";
-import { analyzeMeetingTranscript } from "./services/openai";
+import { analyzeMeetingTranscript } from "./services/textAnalyzer";
 import { processLink, detectLinkType } from "./services/linkProcessor";
 import { authenticateToken, hashPassword, comparePassword, generateToken, type AuthRequest } from "./auth";
 import multer from "multer";

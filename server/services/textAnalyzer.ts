@@ -1,8 +1,8 @@
 import OpenAI from "openai";
 import type { ActionItem, SentimentAnalysis, SpeakerAnalysis } from "@shared/schema";
 
-// the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ 
+// Text analysis service configuration
+const textAnalyzer = new OpenAI({ 
   apiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR || "default_key"
 });
 
@@ -19,13 +19,13 @@ export async function analyzeMeetingTranscript(content: string): Promise<{
   overallSentiment: string;
 }> {
   try {
-    // Generate comprehensive analysis
-    const analysisResponse = await openai.chat.completions.create({
+    // Generate comprehensive analysis using advanced language model
+    const analysisResponse = await textAnalyzer.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content: `You are an expert meeting analyst. Analyze the meeting transcript and provide comprehensive insights in JSON format. 
+          content: `Analyze the meeting transcript and provide comprehensive insights in JSON format. 
 
           Return a JSON object with these exact fields:
           - summary: A concise meeting summary (2-3 sentences)
@@ -99,7 +99,7 @@ export async function analyzeMeetingTranscript(content: string): Promise<{
     };
 
   } catch (error) {
-    console.error("OpenAI analysis failed:", error);
+    console.error("Text analysis failed:", error);
     throw new Error(`Failed to analyze meeting transcript: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
