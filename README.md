@@ -5,7 +5,7 @@ A comprehensive web application for analyzing and summarizing meeting transcript
 
 ## Features
 
-- **Meeting Analysis**: Upload and analyze meeting transcripts in various formats (.txt, .docx, .pdf)
+- **Meeting Analysis**: Upload and analyze meeting transcripts in various formats (.txt, .docx, .pdf,.mp3,mp4)
 - **Smart Summarization**: Generate concise summaries with key points and decisions
 - **Action Item Extraction**: Automatically identify and track action items with priorities
 - **Sentiment Analysis**: Analyze meeting sentiment over time with interactive visualizations
@@ -48,7 +48,7 @@ A comprehensive web application for analyzing and summarizing meeting transcript
 
 1. Clone the repository:
 ```bash
-git clone <your-repo-url>
+git clone <https://github.com/Nareshm03/AI-Meeting-Summrize>
 cd meeting-summarizer
 ```
 
@@ -59,13 +59,14 @@ npm install
 
 3. Set up environment variables:
 ```bash
-cp .env.example .env
+cp .env
 ```
 
 Edit `.env` with your configuration:
 ```
 DATABASE_URL=your_postgresql_connection_string
 OPENAI_API_KEY=your_openai_api_key
+GROQ_API_KEY=your_groq_api_key
 SESSION_SECRET=your_session_secret
 ```
 
