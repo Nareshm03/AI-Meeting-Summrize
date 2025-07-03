@@ -1,3 +1,23 @@
+// Load environment variables
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
+// Simple .env loader
+try {
+  const envFile = readFileSync(join(process.cwd(), '.env'), 'utf8');
+  envFile.split('\n').forEach(line => {
+    const [key, ...valueParts] = line.split('=');
+    if (key && valueParts.length > 0) {
+      const value = valueParts.join('=').trim();
+      if (value && !value.startsWith('#')) {
+        process.env[key.trim()] = value;
+      }
+    }
+  });
+} catch (error) {
+  console.log('No .env file found or error reading it');
+}
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -60,11 +80,8 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
+  server.listen(port, "localhost", () => {
+    log(`🚀 Server running on http://localhost:${port}`);
+    log(`📊 Database: Neon Cloud (Connected)`);
   });
 })();

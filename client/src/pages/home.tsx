@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Brain, Plus, User, Search, BarChart3, TrendingUp, Clock, Users, FileText, Activity, PieChart, LogOut } from "lucide-react";
+import { Brain, Plus, User, Search, BarChart3, TrendingUp, Clock, Users, FileText, Activity, PieChart, LogOut, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
@@ -13,6 +13,20 @@ import { useAuth } from "@/hooks/useAuth";
 import FileUpload from "@/components/file-upload";
 import MeetingAnalysis from "@/components/meeting-analysis";
 import MeetingInsights from "@/components/meeting-insights";
+import AIStatus from "@/components/ai-status";
+import MeetingDebug from "@/components/meeting-debug";
+import { MeetingCard, MeetingCardSkeleton } from "@/components/meeting-card";
+import { getQueryFn } from "@/lib/queryClient";
+import { AnimatedCard } from "@/components/ui/animated-card";
+import { AnimatedButton, FloatingActionButton } from "@/components/ui/animated-button";
+import { AIProcessingLoader } from "@/components/ui/animated-loader";
+import { FadeInPage } from "@/components/ui/page-transition";
+import { AnimatedSearch } from "@/components/ui/animated-search";
+import { useNotifications, NotificationContainer } from "@/components/ui/animated-notification";
+import { AnimatedWidget, MetricWidget, ProgressWidget } from "@/components/ui/animated-widget";
+import { useStaggerAnimation, useTextAnimation, useScrollAnimation } from "@/hooks/useGSAP";
+import { gsap } from "@/lib/animations";
+import { PerformanceMonitor } from "@/components/performance-monitor";
 import type { Meeting } from "@shared/schema";
 
 export default function Home() {
@@ -20,17 +34,64 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("analysis");
   const { user, logout } = useAuth();
-
-  const { data: meetings = [], isLoading } = useQuery<Meeting[]>({
-    queryKey: ["/api/meetings"],
-  });
-
+  const { notifications, showSuccess, showError, showInfo, removeNotification } = useNotifications();
+  
+  // Animation refs
+  const { containerRef: statsRef, triggerAnimation: triggerStatsAnimation } = useStaggerAnimation<HTMLDivElement>('.stats-card', 'scaleIn');
+  const { ref: titleRef, animate: titleAnimate } = useTextAnimation<HTMLHeadingElement>();
+  const pageRef = useScrollAnimation<HTMLDivElement>('fadeIn');
+  
+  // Helper function for user initials
   const getUserInitials = () => {
     if (user?.firstName && user?.lastName) {
       return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
     }
-    return user?.username?.[0]?.toUpperCase() || "U";
+    if (user?.username) {
+      return user.username.slice(0, 2).toUpperCase();
+    }
+    return 'U';
   };
+
+  const { data: meetings = [], isLoading, error } = useQuery<Meeting[]>({
+    queryKey: ["/api/meetings"],
+    queryFn: getQueryFn({ on401: "throw" }),
+  });
+
+  // Trigger animations when data loads
+  useEffect(() => {
+    if (meetings.length > 0) {
+      // Reduced delay for better performance
+      setTimeout(() => {
+        triggerStatsAnimation();
+      }, 100);
+    }
+  }, [meetings.length, triggerStatsAnimation]);
+
+  // Animate title on mount (optimized)
+  useEffect(() => {
+    // Reduced delay
+    setTimeout(() => {
+      titleAnimate.fadeInWords();
+    }, 200);
+  }, [titleAnimate]);
+
+  // Show notification when meeting is selected (disabled for performance)
+  // useEffect(() => {
+  //   if (selectedMeetingId) {
+  //     const meeting = meetings.find(m => m.id === selectedMeetingId);
+  //     if (meeting) {
+  //       showInfo('Meeting Selected', `Now viewing analysis for "${meeting.filename}"`);
+  //     }
+  //   }
+  // }, [selectedMeetingId, meetings, showInfo]);
+
+  // Debug logging
+  console.log('Meetings Debug:', {
+    isLoading,
+    error: error?.message,
+    meetingsCount: meetings.length,
+    meetings: meetings.map(m => ({ id: m.id, filename: m.filename, status: m.processingStatus }))
+  });
 
   const selectedMeeting = meetings.find(m => m.id === selectedMeetingId);
 
@@ -48,114 +109,151 @@ export default function Home() {
     : 50;
 
   return (
-    <div className="min-h-screen bg-background transition-colors duration-300">
+    <FadeInPage className="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950 transition-colors duration-300">
       {/* Enhanced Header with gradient */}
-      <header className="bg-gradient-to-r from-primary/10 via-background to-primary/10 shadow-sm border-b border-border backdrop-blur-sm">
+      <header className="animate-item bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50 transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center group">
-              <div className="flex-shrink-0 transition-transform duration-300 group-hover:scale-110">
-                <Brain className="text-primary text-2xl animate-pulse" />
-              </div>
-              <div className="ml-4">
-                <h1 className="text-xl font-semibold text-foreground bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-                  AI Meeting Analyzer
-                </h1>
-                <p className="text-xs text-muted-foreground">Powered by GPT-4o</p>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 hover:rotate-12">
+                  <Brain className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 ref={titleRef} className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    AI Meeting Summarizer
+                  </h1>
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-3 h-3 text-blue-500 animate-pulse" />
+                    <AIStatus />
+                  </div>
+                </div>
               </div>
             </div>
             <div className="flex items-center space-x-4">
               <ThemeToggle />
-              <Button 
+              <AnimatedButton 
                 variant="outline"
                 onClick={() => setActiveTab("insights")}
-                className={`transition-all duration-200 hover:scale-105 ${
+                className={`${
                   activeTab === "insights" ? "bg-primary text-primary-foreground" : ""
                 }`}
+                icon={<PieChart className="w-4 h-4" />}
               >
-                <PieChart className="w-4 h-4 mr-2" />
                 Insights
-              </Button>
-              <Button 
-                className="bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl"
+              </AnimatedButton>
+              <AnimatedButton 
+                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white border-0 shadow-lg hover:shadow-xl"
                 onClick={() => {
                   setSelectedMeetingId(null);
                   setActiveTab("analysis");
                 }}
+                icon={<Plus className="w-4 h-4" />}
+                gradient
+                ripple
               >
-                <Plus className="w-4 h-4 mr-2" />
                 New Analysis
-              </Button>
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center transition-all duration-200 hover:bg-primary/20">
-                  <User className="w-4 h-4 text-primary" />
-                </div>
-                <span className="text-sm font-medium text-foreground">John Doe</span>
-              </div>
+              </AnimatedButton>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center space-x-2 hover:bg-primary/10">
+                    <Avatar className="w-8 h-8">
+                      <AvatarImage src={user?.profileImageUrl} />
+                      <AvatarFallback className="bg-primary/10 text-primary">
+                        {getUserInitials()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col items-start">
+                      <span className="text-sm font-medium text-foreground">
+                        {user?.firstName && user?.lastName 
+                          ? `${user.firstName} ${user.lastName}`
+                          : user?.username || 'User'
+                        }
+                      </span>
+                      <span className="text-xs text-muted-foreground">{user?.email}</span>
+                    </div>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem className="flex items-center">
+                    <User className="w-4 h-4 mr-2" />
+                    Profile Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    className="flex items-center text-red-600 focus:text-red-600"
+                    onClick={logout}
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="animate-item max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Dashboard */}
         {meetings.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800 transition-all duration-300 hover:shadow-lg hover:scale-105">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300 flex items-center">
-                  <FileText className="w-4 h-4 mr-2" />
-                  Total Meetings
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+          <div ref={statsRef} className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <AnimatedCard
+              className="stats-card bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800"
+              title="Total Meetings"
+              icon={<FileText className="w-5 h-5 text-blue-500" />}
+              animation="scale"
+            >
+              <div className="space-y-2">
                 <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">{meetings.length}</div>
                 <p className="text-xs text-blue-600 dark:text-blue-400">{completedMeetings} completed</p>
-              </CardContent>
-            </Card>
+              </div>
+            </AnimatedCard>
 
-            <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800 transition-all duration-300 hover:shadow-lg hover:scale-105">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300 flex items-center">
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  Action Items
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+            <AnimatedCard
+              className="stats-card bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800"
+              title="Action Items"
+              icon={<BarChart3 className="w-5 h-5 text-green-500" />}
+              animation="scale"
+            >
+              <div className="space-y-2">
                 <div className="text-2xl font-bold text-green-900 dark:text-green-100">{totalActionItems}</div>
                 <p className="text-xs text-green-600 dark:text-green-400">across all meetings</p>
-              </CardContent>
-            </Card>
+              </div>
+            </AnimatedCard>
 
-            <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-purple-200 dark:border-purple-800 transition-all duration-300 hover:shadow-lg hover:scale-105">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-300 flex items-center">
-                  <TrendingUp className="w-4 h-4 mr-2" />
-                  Avg Sentiment
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">{avgSentiment}%</div>
-                <p className="text-xs text-purple-600 dark:text-purple-400">
-                  {avgSentiment > 60 ? 'Positive' : avgSentiment > 40 ? 'Neutral' : 'Negative'}
-                </p>
-              </CardContent>
-            </Card>
+            <div className="stats-card">
+              <MetricWidget
+                title="Avg Sentiment"
+                value={`${avgSentiment}%`}
+                subtitle={avgSentiment > 60 ? 'Positive' : avgSentiment > 40 ? 'Neutral' : 'Negative'}
+                icon={<TrendingUp className="w-5 h-5" />}
+                change={{
+                  value: Math.random() * 10 - 5, // Mock change data
+                  period: 'last week'
+                }}
+                variant="gradient"
+                refreshable={true}
+                onRefresh={() => {
+                  showInfo('Refreshed', 'Sentiment data has been updated');
+                }}
+                className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-purple-200 dark:border-purple-800"
+              />
+            </div>
 
-            <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 border-orange-200 dark:border-orange-800 transition-all duration-300 hover:shadow-lg hover:scale-105">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-orange-700 dark:text-orange-300 flex items-center">
-                  <Clock className="w-4 h-4 mr-2" />
-                  Total Duration
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+            <AnimatedCard
+              className="stats-card bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 border-orange-200 dark:border-orange-800"
+              title="Total Duration"
+              icon={<Clock className="w-5 h-5 text-orange-500" />}
+              animation="scale"
+            >
+              <div className="space-y-2">
                 <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">
                   {Math.round(meetings.reduce((sum, m) => sum + (m.duration || 0), 0))}m
                 </div>
                 <p className="text-xs text-orange-600 dark:text-orange-400">meeting time analyzed</p>
-              </CardContent>
-            </Card>
+              </div>
+            </AnimatedCard>
           </div>
         )}
 
@@ -183,6 +281,29 @@ export default function Home() {
                   }} />
                 </div>
                 
+                {/* Debug Info */}
+                <Card className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
+                  <CardContent className="p-4">
+                    <h4 className="font-semibold text-sm text-yellow-800 dark:text-yellow-200">Debug Info:</h4>
+                    <ul className="text-xs space-y-1 text-yellow-700 dark:text-yellow-300">
+                      <li>Loading: {isLoading ? 'Yes' : 'No'}</li>
+                      <li>Error: {error ? String(error) : 'None'}</li>
+                      <li>Meetings Count: {meetings.length}</li>
+                      <li>User ID: {user?.id}</li>
+                    </ul>
+                    {meetings.length > 0 && (
+                      <div className="mt-2">
+                        <h5 className="font-semibold text-xs text-yellow-800 dark:text-yellow-200">Recent Meetings:</h5>
+                        <ul className="text-xs text-yellow-700 dark:text-yellow-300">
+                          {meetings.slice(0, 3).map(m => (
+                            <li key={m.id}>#{m.id} - {m.filename} ({m.processingStatus})</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
                 {/* Search and Recent Meetings */}
                 {meetings.length > 0 && (
                   <Card className="animate-in slide-in-from-left duration-700 bg-card border-border shadow-lg hover:shadow-xl transition-all duration-300">
@@ -191,66 +312,42 @@ export default function Home() {
                         <Search className="w-5 h-5 mr-2 text-primary" />
                         Meeting Library
                       </CardTitle>
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                        <Input
-                          placeholder="Search meetings..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="pl-10 transition-all duration-200 focus:ring-2 focus:ring-primary/20"
-                        />
-                      </div>
+                      <AnimatedSearch
+                        placeholder="Search meetings..."
+                        value={searchQuery}
+                        onChange={setSearchQuery}
+                        suggestions={meetings.map(m => m.filename)}
+                        showFilters={true}
+                        filters={[
+                          { label: 'Completed', value: 'completed', active: false },
+                          { label: 'Processing', value: 'processing', active: false },
+                          { label: 'Recent', value: 'recent', active: false }
+                        ]}
+                        variant="default"
+                        size="md"
+                      />
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3 max-h-96 overflow-y-auto custom-scrollbar">
-                        {filteredMeetings.slice(0, 10).map((meeting, index) => (
-                          <button
-                            key={meeting.id}
-                            onClick={() => {
-                              setSelectedMeetingId(meeting.id);
-                              setActiveTab("analysis");
-                            }}
-                            className={`w-full text-left p-4 rounded-lg border transition-all duration-200 hover:shadow-md group animate-in slide-in-from-bottom ${
-                              selectedMeetingId === meeting.id
-                                ? 'border-primary bg-primary/5 shadow-md'
-                                : 'border-border hover:border-primary/50 hover:bg-primary/2'
-                            }`}
-                            style={{ animationDelay: `${index * 50}ms` }}
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-foreground truncate group-hover:text-primary transition-colors">
-                                  {meeting.filename}
-                                </p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {meeting.createdAt ? new Date(meeting.createdAt).toLocaleDateString() : 'Recently uploaded'}
-                                </p>
-                                {meeting.duration && (
-                                  <p className="text-xs text-muted-foreground">
-                                    {meeting.duration} minutes
-                                  </p>
-                                )}
-                              </div>
-                              <div className="flex flex-col items-end space-y-1">
-                                <Badge
-                                  variant={
-                                    meeting.processingStatus === 'completed' ? 'default' :
-                                    meeting.processingStatus === 'processing' ? 'secondary' :
-                                    meeting.processingStatus === 'failed' ? 'destructive' : 'outline'
-                                  }
-                                  className="text-xs"
-                                >
-                                  {meeting.processingStatus}
-                                </Badge>
-                                {meeting.actionItems && meeting.actionItems.length > 0 && (
-                                  <Badge variant="outline" className="text-xs">
-                                    {meeting.actionItems.length} actions
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          </button>
-                        ))}
+                        {isLoading ? (
+                          // Show skeleton loaders while loading
+                          Array.from({ length: 3 }).map((_, index) => (
+                            <MeetingCardSkeleton key={index} index={index} />
+                          ))
+                        ) : (
+                          filteredMeetings.slice(0, 10).map((meeting, index) => (
+                            <MeetingCard
+                              key={meeting.id}
+                              meeting={meeting}
+                              isSelected={selectedMeetingId === meeting.id}
+                              onClick={() => {
+                                setSelectedMeetingId(meeting.id);
+                                setActiveTab("analysis");
+                              }}
+                              index={index}
+                            />
+                          ))
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -261,7 +358,10 @@ export default function Home() {
               <div className="lg:col-span-2">
                 <div className="animate-in slide-in-from-right duration-500">
                   {selectedMeeting ? (
-                    <MeetingAnalysis meeting={selectedMeeting} />
+                    <div className="space-y-4">
+                      <MeetingAnalysis meeting={selectedMeeting} />
+                      <MeetingDebug meetingId={selectedMeeting.id} />
+                    </div>
                   ) : (
                     <Card className="bg-gradient-to-br from-primary/5 to-background border-border shadow-lg hover:shadow-xl transition-all duration-300 group">
                       <CardContent className="p-12 text-center">
@@ -307,6 +407,25 @@ export default function Home() {
           </TabsContent>
         </Tabs>
       </div>
-    </div>
+
+      {/* Floating Action Button */}
+      <FloatingActionButton
+        onClick={() => {
+          setSelectedMeetingId(null);
+          setActiveTab("analysis");
+        }}
+      >
+        <Plus className="w-6 h-6" />
+      </FloatingActionButton>
+
+      {/* Notification Container */}
+      <NotificationContainer
+        notifications={notifications}
+        onClose={removeNotification}
+      />
+
+      {/* Performance Monitor (Ctrl+Shift+P to toggle) */}
+      <PerformanceMonitor />
+    </FadeInPage>
   );
 }

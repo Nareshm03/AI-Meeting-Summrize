@@ -39,6 +39,15 @@ export default function MeetingAnalysis({ meeting }: MeetingAnalysisProps) {
   });
 
   const currentMeeting = updatedMeeting || meeting;
+  
+  // Debug logging
+  console.log('Meeting Analysis Debug:', {
+    processingStatus: currentMeeting.processingStatus,
+    hasSummary: !!currentMeeting.summary,
+    summary: currentMeeting.summary?.substring(0, 100),
+    keyPoints: currentMeeting.keyPoints?.length,
+    actionItems: currentMeeting.actionItems?.length
+  });
 
   const handleExport = (type: string, format: string) => {
     try {

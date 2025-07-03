@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { AnimatedCard } from "@/components/ui/animated-card";
+import { UploadLoader, TranscriptionLoader, AIProcessingLoader } from "@/components/ui/animated-loader";
+import { AnimatedProgress, StepProgress } from "@/components/ui/animated-progress";
+import { AnimatedTooltip, InfoTooltip } from "@/components/ui/animated-tooltip";
 
 interface FileUploadProps {
   onMeetingCreated: (meetingId: number) => void;
@@ -27,11 +31,12 @@ export default function FileUpload({ onMeetingCreated }: FileUploadProps) {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/meetings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/ai-status'] });
       onMeetingCreated(data.meetingId);
       setUploadProgress(0);
       toast({
-        title: "Upload successful",
-        description: "Your meeting transcript is being analyzed.",
+        title: "✅ Upload successful!",
+        description: "Your meeting content is being processed and analyzed with AI. Video/audio files will be transcribed first. Check back in a few moments for results.",
       });
     },
     onError: (error) => {
@@ -71,24 +76,38 @@ export default function FileUpload({ onMeetingCreated }: FileUploadProps) {
   };
 
   const handleFile = (file: File) => {
-    // Validate file type
-    const allowedTypes = ['text/plain', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/pdf'];
-    const allowedExtensions = ['.txt', '.docx', '.pdf'];
+    // Validate file type - now includes video and audio files
+    const allowedTypes = [
+      'text/plain', 
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+      'application/pdf',
+      'video/mp4',
+      'video/avi',
+      'video/mov',
+      'video/wmv',
+      'video/webm',
+      'audio/mp3',
+      'audio/wav',
+      'audio/m4a',
+      'audio/mpeg'
+    ];
+    const allowedExtensions = ['.txt', '.docx', '.pdf', '.mp4', '.avi', '.mov', '.wmv', '.webm', '.mp3', '.wav', '.m4a'];
     
     if (!allowedTypes.includes(file.type) && !allowedExtensions.some(ext => file.name.toLowerCase().endsWith(ext))) {
       toast({
         title: "Invalid file type",
-        description: "Please upload a .txt, .docx, or .pdf file.",
+        description: "Please upload a text file (.txt, .docx, .pdf) or video/audio file (.mp4, .avi, .mov, .mp3, .wav, etc.)",
         variant: "destructive",
       });
       return;
     }
 
-    // Validate file size (10MB)
-    if (file.size > 10 * 1024 * 1024) {
+    // Validate file size - increased for video files (100MB)
+    const maxSize = file.type.startsWith('video/') || file.type.startsWith('audio/') ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (file.size > maxSize) {
       toast({
         title: "File too large",
-        description: "Please upload a file smaller than 10MB.",
+        description: `Please upload a file smaller than ${file.type.startsWith('video/') || file.type.startsWith('audio/') ? '100MB' : '10MB'}.`,
         variant: "destructive",
       });
       return;
@@ -103,11 +122,13 @@ export default function FileUpload({ onMeetingCreated }: FileUploadProps) {
   };
 
   return (
-    <div className="bg-card rounded-xl shadow-lg border border-border p-6 transition-all duration-300 hover:shadow-xl group">
-      <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center">
-        <CloudUpload className="w-5 h-5 mr-2 text-primary" />
-        Upload Meeting Transcript
-      </h2>
+    <AnimatedCard
+      title="Upload Meeting Content"
+      icon={<CloudUpload className="w-5 h-5 text-primary" />}
+      gradient="blue"
+      animation="slideUp"
+      className="group"
+    >
       
       {/* Upload Area */}
       <div
@@ -130,53 +151,82 @@ export default function FileUpload({ onMeetingCreated }: FileUploadProps) {
             dragActive ? 'text-primary animate-bounce' : 'text-muted-foreground group-hover:text-primary'
           }`} />
           <p className="text-lg font-medium text-foreground mb-2 transition-colors">
-            {dragActive ? 'Release to upload' : 'Drop your transcript here'}
+            {dragActive ? 'Release to upload' : 'Drop your meeting file here'}
           </p>
           <p className="text-sm text-muted-foreground mb-4">or click to browse files</p>
-          <div className="flex justify-center space-x-2 text-xs text-muted-foreground">
-            <span className="px-2 py-1 bg-primary/10 text-primary rounded-full">.txt</span>
-            <span className="px-2 py-1 bg-primary/10 text-primary rounded-full">.docx</span>
-            <span className="px-2 py-1 bg-primary/10 text-primary rounded-full">.pdf</span>
+          <div className="flex justify-center flex-wrap gap-2 text-xs text-muted-foreground mb-2">
+            <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full">📄 .txt</span>
+            <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full">📄 .docx</span>
+            <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full">📄 .pdf</span>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">Maximum file size: 10MB</p>
+          <div className="flex justify-center flex-wrap gap-2 text-xs text-muted-foreground">
+            <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full">🎥 .mp4</span>
+            <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full">🎥 .avi</span>
+            <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full">🎵 .mp3</span>
+            <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full">🎵 .wav</span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">Text files: 10MB max • Video/Audio: 100MB max</p>
         </div>
         
         <input
           ref={fileInputRef}
           type="file"
           className="hidden"
-          accept=".txt,.docx,.pdf"
+          accept=".txt,.docx,.pdf,.mp4,.avi,.mov,.wmv,.webm,.mp3,.wav,.m4a"
           onChange={handleFileSelect}
         />
       </div>
 
       {/* Processing Status */}
       {uploadMutation.isPending && (
-        <div className="mt-4 animate-in slide-in-from-bottom duration-300">
-          <div className="flex items-center justify-between p-4 bg-primary/10 rounded-lg border border-primary/20">
-            <div className="flex items-center">
-              <div className="relative">
-                <Loader2 className="w-5 h-5 animate-spin text-primary mr-3" />
-                <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-pulse" />
-              </div>
-              <div>
-                <span className="text-sm font-medium text-primary">Processing transcript...</span>
-                <p className="text-xs text-muted-foreground">AI is analyzing your meeting</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <span className="text-lg font-bold text-primary">{uploadProgress}%</span>
+        <div className="mt-6 space-y-6">
+          {/* Main Processing Display */}
+          <div className="flex flex-col items-center justify-center p-6 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-950 dark:to-indigo-900 rounded-xl border border-blue-200 dark:border-blue-800">
+            <AIProcessingLoader />
+            <div className="mt-4 text-center">
+              <div className="text-lg font-bold text-primary">{uploadProgress}%</div>
+              <p className="text-sm text-muted-foreground">Processing your meeting content...</p>
             </div>
           </div>
-          <div className="mt-3">
-            <Progress value={uploadProgress} className="h-2 transition-all duration-300" />
-            <div className="flex justify-between text-xs text-muted-foreground mt-1">
-              <span>Uploading...</span>
-              <span>Analyzing content...</span>
+
+          {/* Step Progress */}
+          <div className="bg-background/50 backdrop-blur-sm rounded-lg p-4 border border-border">
+            <StepProgress
+              steps={['Upload', 'Transcribe', 'Analyze', 'Complete']}
+              currentStep={Math.floor(uploadProgress / 25)}
+              animated={true}
+            />
+          </div>
+
+          {/* Detailed Progress */}
+          <div className="space-y-4">
+            <AnimatedProgress
+              value={uploadProgress}
+              variant="gradient"
+              color="blue"
+              size="lg"
+              showValue={true}
+              animated={true}
+            />
+            
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <InfoTooltip info="File is being uploaded to our secure servers">
+                <div className="flex items-center gap-2 p-2 bg-accent/50 rounded-lg">
+                  <UploadLoader size="sm" />
+                  <span className="text-muted-foreground">Uploading...</span>
+                </div>
+              </InfoTooltip>
+              
+              <InfoTooltip info="AI is transcribing and analyzing your meeting content">
+                <div className="flex items-center gap-2 p-2 bg-accent/50 rounded-lg">
+                  <TranscriptionLoader size="sm" />
+                  <span className="text-muted-foreground">Analyzing...</span>
+                </div>
+              </InfoTooltip>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </AnimatedCard>
   );
 }

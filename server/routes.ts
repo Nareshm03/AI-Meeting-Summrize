@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { insertMeetingSchema, insertUserSchema, loginSchema, linkProcessSchema } from "@shared/schema";
 import { analyzeMeetingTranscript } from "./services/textAnalyzer";
 import { processLink, detectLinkType } from "./services/linkProcessor";
+import { speechToTextService } from "./services/speechToText";
 import { authenticateToken, hashPassword, comparePassword, generateToken, type AuthRequest } from "./auth";
 import multer from "multer";
 
@@ -11,14 +12,29 @@ import multer from "multer";
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
+    fileSize: 100 * 1024 * 1024, // 100MB limit for video/audio files
   },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ['text/plain', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/pdf'];
-    if (allowedTypes.includes(file.mimetype) || file.originalname.endsWith('.txt')) {
+    const allowedTypes = [
+      'text/plain', 
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+      'application/pdf',
+      'video/mp4',
+      'video/avi',
+      'video/mov',
+      'video/wmv',
+      'video/webm',
+      'audio/mp3',
+      'audio/wav',
+      'audio/m4a',
+      'audio/mpeg'
+    ];
+    const allowedExtensions = ['.txt', '.docx', '.pdf', '.mp4', '.avi', '.mov', '.wmv', '.webm', '.mp3', '.wav', '.m4a'];
+    
+    if (allowedTypes.includes(file.mimetype) || allowedExtensions.some(ext => file.originalname.toLowerCase().endsWith(ext))) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only .txt, .docx, and .pdf files are allowed.'));
+      cb(new Error('Invalid file type. Only text files (.txt, .docx, .pdf) and video/audio files (.mp4, .avi, .mov, .mp3, .wav, etc.) are allowed.'));
     }
   }
 });
@@ -147,10 +163,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get AI provider status
+  app.get("/api/ai-status", async (req, res) => {
+    try {
+      const { AIProviderManager } = await import('./services/aiProviders.js');
+      const aiManager = new AIProviderManager();
+      const provider = await aiManager.getAvailableProvider();
+      
+      res.json({
+        currentProvider: provider.name,
+        status: provider.name === 'Local' ? 'limited' : 'full',
+        message: provider.name === 'Local' 
+          ? 'Using local analysis - upgrade AI provider for detailed insights'
+          : `Using ${provider.name} for AI-powered analysis`
+      });
+    } catch (error) {
+      res.json({
+        currentProvider: 'Local',
+        status: 'limited',
+        message: 'Using local analysis - AI providers unavailable'
+      });
+    }
+  });
+
   // Get all meetings (protected)
   app.get("/api/meetings", authenticateToken, async (req: AuthRequest, res) => {
     try {
       const meetings = await storage.getAllMeetings(req.userId!);
+      console.log(`Fetching meetings for user ${req.userId}:`, {
+        count: meetings.length,
+        meetings: meetings.map(m => ({ id: m.id, filename: m.filename, status: m.processingStatus }))
+      });
       res.json(meetings);
     } catch (error) {
       console.error("Failed to fetch meetings:", error);
@@ -171,6 +214,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Meeting not found" });
       }
 
+      console.log(`Fetching meeting ${id}:`, {
+        processingStatus: meeting.processingStatus,
+        hasSummary: !!meeting.summary,
+        summaryLength: meeting.summary?.length,
+        keyPointsCount: meeting.keyPoints?.length,
+        actionItemsCount: meeting.actionItems?.length
+      });
+
       res.json(meeting);
     } catch (error) {
       console.error("Failed to fetch meeting:", error);
@@ -187,14 +238,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Extract text content from file
       let content: string;
-      try {
-        content = req.file.buffer.toString('utf-8');
-      } catch (error) {
-        return res.status(400).json({ message: "Failed to read file content. Please ensure the file is in UTF-8 format." });
-      }
+      
+      // Check if it's a video/audio file that needs transcription
+      if (speechToTextService.isAudioVideoFile(req.file.originalname)) {
+        try {
+          console.log(`Processing video/audio file: ${req.file.originalname}`);
+          const transcriptionResult = await speechToTextService.transcribeAudio(req.file.buffer, req.file.originalname);
+          content = transcriptionResult.text;
+          
+          if (!content.trim()) {
+            return res.status(400).json({ message: "No speech detected in the audio/video file" });
+          }
+          
+          console.log(`Transcription completed: ${content.length} characters`);
+        } catch (error) {
+          console.error('Transcription failed:', error);
+          return res.status(400).json({ 
+            message: `Failed to transcribe audio/video: ${error instanceof Error ? error.message : 'Unknown error'}` 
+          });
+        }
+      } else {
+        // Handle text files
+        try {
+          // Convert buffer to string and clean it
+          content = req.file.buffer.toString('utf-8');
+          
+          // Remove null bytes and other problematic characters
+          content = content.replace(/\0/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+          
+          // Ensure valid UTF-8 by re-encoding
+          content = Buffer.from(content, 'utf-8').toString('utf-8');
+          
+        } catch (error) {
+          return res.status(400).json({ message: "Failed to read file content. Please ensure the file is in UTF-8 format." });
+        }
 
-      if (!content.trim()) {
-        return res.status(400).json({ message: "File appears to be empty" });
+        if (!content.trim()) {
+          return res.status(400).json({ message: "File appears to be empty or contains only invalid characters" });
+        }
       }
 
       // Validate the meeting data
@@ -244,11 +325,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Process the link
       const linkResult = await processLink(url, detectedType);
 
+      // Clean content to ensure valid UTF-8
+      let cleanContent = linkResult.content;
+      try {
+        // Remove null bytes and other problematic characters
+        cleanContent = cleanContent.replace(/\0/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+        // Ensure valid UTF-8 by re-encoding
+        cleanContent = Buffer.from(cleanContent, 'utf-8').toString('utf-8');
+      } catch (error) {
+        console.error("Content cleaning failed:", error);
+      }
+
       // Create meeting record
       const meetingData = {
         userId: req.userId!,
         filename: linkResult.title,
-        content: linkResult.content,
+        content: cleanContent,
         sourceType: detectedType,
         sourceUrl: url,
       };
@@ -311,7 +403,7 @@ async function processTranscriptAsync(meetingId: number, content: string) {
     const analysis = await analyzeMeetingTranscript(content);
 
     // Update meeting with analysis results
-    await storage.updateMeeting(meetingId, {
+    const updateData = {
       processingStatus: "completed",
       summary: analysis.summary,
       keyPoints: analysis.keyPoints,
@@ -323,7 +415,16 @@ async function processTranscriptAsync(meetingId: number, content: string) {
       duration: analysis.duration,
       participantCount: analysis.participantCount,
       overallSentiment: analysis.overallSentiment
+    };
+    
+    console.log(`Updating meeting ${meetingId} with analysis:`, {
+      summary: analysis.summary?.substring(0, 100),
+      keyPointsCount: analysis.keyPoints?.length,
+      decisionsCount: analysis.decisions?.length,
+      actionItemsCount: analysis.actionItems?.length
     });
+    
+    await storage.updateMeeting(meetingId, updateData);
 
     console.log(`Meeting ${meetingId} processed successfully`);
   } catch (error) {
