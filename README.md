@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Meeting Summarizer
 
 A comprehensive web application for analyzing and summarizing meeting transcripts with advanced features including sentiment analysis, action item extraction, and speaker insights.
@@ -146,3 +147,6 @@ This project was developed to solve the common problem of extracting actionable 
 - **Real-time Analysis**: Fast processing with immediate results
 - **User-Friendly Interface**: Clean, intuitive design for seamless user experience
 - **Secure & Scalable**: Built with security and performance in mind
+=======
+# AI-Meeting-Summrize
+>>>>>>> 3af936844cc30d3cc7358b6a8935018c55c28735
